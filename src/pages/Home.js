@@ -23,7 +23,7 @@ function Home() {
 
   return (
     <div>
-      <h1>Home</h1>
+      <h1>Amogus</h1>
       {data.map((each) => (
         <p key={each.id}>
           {each.id} {each.name} {each.country}
