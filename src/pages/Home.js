@@ -1,6 +1,9 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import userApi from "../api";
+import WebSocketConn from "../websocket";
+import Chat from "../components/Chat";
+import TestChat from "../components/TestChat";
 
 function Home() {
   const [data, setData] = useState([]);
@@ -23,12 +26,14 @@ function Home() {
 
   return (
     <div>
-      <h1>Amogus</h1>
+      {/* <h1>Amogus</h1>
       {data.map((each) => (
         <p key={each.id}>
           {each.id} {each.name} {each.country}
         </p>
-      ))}
+      ))} */}
+      {/* <Chat /> */}
+      <TestChat />
     </div>
   );
 }
