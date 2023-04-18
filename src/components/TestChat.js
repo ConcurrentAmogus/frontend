@@ -23,7 +23,7 @@ function TestChat() {
   const [tab, setTab] = useState("PUBLIC");
 
   const handleLogin = () => {
-    const socket = new SockJS("http://localhost:8080/ws2");
+    const socket = new SockJS("http://localhost:8080/ws-endpoint");
     stompClient = Stomp.over(socket);
     stompClient.connect({}, handleConnect, handleError);
   };
@@ -90,21 +90,26 @@ function TestChat() {
       roomId: roomData.roomId,
       status: "WAITING",
     };
-    stompClient.send("/app/update-room", {}, JSON.stringify(roomInfo));
+    stompClient.send("/ws/update-room", {}, JSON.stringify(roomInfo));
   };
 
   const handleMessage = (message) => {
+    var today = new Date();
+    var min =
+      today.getMinutes() < 10 ? "0" + today.getMinutes() : today.getMinutes();
+    var currentTime = today.getHours() + ":" + min;
+
     setMessageData({
       senderName: playerData.username,
       message: message,
-      time: "now",
+      time: currentTime,
     });
   };
 
   const sendPublicMsg = () => {
     if (stompClient) {
       stompClient.send(
-        "/app/public-message",
+        "/ws/send-public-message",
         {},
         JSON.stringify({ room: roomData, message: messageData })
       );
@@ -119,7 +124,7 @@ function TestChat() {
   const sendPrivateMsg = () => {
     if (stompClient) {
       stompClient.send(
-        "/app/private-message",
+        "/ws/send-private-message",
         {},
         JSON.stringify({
           room: roomData,
@@ -166,18 +171,24 @@ function TestChat() {
               <ul className="chat-messages">
                 {publicChats.map((chat, index) => (
                   <li
-                    className={`message ${
+                    className={`each-message ${
                       chat.senderName === playerData.username && "self"
                     }`}
                     key={index}
                   >
-                    {chat.senderName !== playerData.username && (
-                      <div className="avatar">{chat.senderName}</div>
-                    )}
-                    <div className="message-data">{chat.message}</div>
-                    {chat.senderName === playerData.username && (
-                      <div className="avatar self">{chat.senderName}</div>
-                    )}
+                    <div
+                      className={`message ${
+                        chat.senderName === playerData.username && "self"
+                      }`}
+                    >
+                      {chat.senderName !== playerData.username && (
+                        <div className="avatar">{chat.senderName}</div>
+                      )}
+                      <div className="message-data">{chat.message}</div>
+                      {chat.senderName === playerData.username && (
+                        <div className="avatar self">{chat.senderName}</div>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -205,18 +216,24 @@ function TestChat() {
               <ul className="chat-messages">
                 {privateChats.map((chat, index) => (
                   <li
-                    className={`message ${
+                    className={`each-message ${
                       chat.senderName === playerData.username && "self"
                     }`}
                     key={index}
                   >
-                    {chat.senderName !== playerData.username && (
-                      <div className="avatar">{chat.senderName}</div>
-                    )}
-                    <div className="message-data">{chat.message}</div>
-                    {chat.senderName === playerData.username && (
-                      <div className="avatar self">{chat.senderName}</div>
-                    )}
+                    <div
+                      className={`message ${
+                        chat.senderName === playerData.username && "self"
+                      }`}
+                    >
+                      {chat.senderName !== playerData.username && (
+                        <div className="avatar">{chat.senderName}</div>
+                      )}
+                      <div className="message-data">{chat.message}</div>
+                      {chat.senderName === playerData.username && (
+                        <div className="avatar self">{chat.senderName}</div>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
