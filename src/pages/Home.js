@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
-import userApi from "../api";
+import userApi, { USER_API } from "../api";
 import WebSocketConn from "../websocket";
 import Chat from "../components/Chat";
 import TestChat from "../components/TestChat";
@@ -10,7 +10,7 @@ function Home() {
 
   const fetchAllUsers = async () => {
     const fetchUsers = await axios
-      .get(userApi)
+      .get(USER_API)
       .then((res) => {
         const data = res.data;
         setData(data);

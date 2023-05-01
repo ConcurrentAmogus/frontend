@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import SockJS from "sockjs-client";
 import Stomp from "stompjs";
+import { WS_ENDPOINT } from "../api";
 
 let stompClient = null;
 function TestChat() {
@@ -23,7 +24,7 @@ function TestChat() {
   const [tab, setTab] = useState("PUBLIC");
 
   const handleLogin = () => {
-    const socket = new SockJS("http://localhost:8080/ws-endpoint");
+    const socket = new SockJS(WS_ENDPOINT);
     stompClient = Stomp.over(socket);
     stompClient.connect({}, handleConnect, handleError);
   };
