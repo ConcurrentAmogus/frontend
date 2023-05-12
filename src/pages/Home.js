@@ -24,16 +24,19 @@ function Home() {
     fetchAllUsers();
   }, []);
 
+  console.log(data);
+
   return (
     <div>
-      {/* <h1>Amogus</h1>
-      {data.map((each) => (
+      <h1>Amogus</h1>
+      {JSON.stringify(data[0])}
+      {/* {data.map((each) => (
         <p key={each.id}>
-          {each.id} {each.name} {each.country}
+          {each.id} {each.username}
         </p>
       ))} */}
       {/* <Chat /> */}
-      <TestChat />
+      {/* <TestChat /> */}
     </div>
   );
 }
