@@ -6,5 +6,6 @@ const API_ENDPOINT = URL + "/api";
 const WS_ENDPOINT = URL + "/ws-endpoint";
 
 const USER_API = API_ENDPOINT + "/user";
+const ROOM_API = API_ENDPOINT + "/room";
 
-export { WS_ENDPOINT, USER_API };
+export { WS_ENDPOINT, USER_API, ROOM_API };

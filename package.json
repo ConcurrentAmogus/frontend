@@ -7,14 +7,19 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.3.5",
+    "daisyui": "^2.51.6",
     "react": "^18.2.0",
+    "react-daisyui": "^3.1.2",
     "react-dom": "^18.2.0",
+    "react-icons": "^4.8.0",
+    "react-router-dom": "^6.11.1",
     "react-scripts": "5.0.1",
     "react-stomp": "^5.1.0",
     "socket.io-client": "^4.6.1",
     "sockjs": "^0.3.24",
     "sockjs-client": "^1.6.1",
     "stompjs": "^2.3.3",
+    "uuidv4": "^6.2.13",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -40,5 +45,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.3.2"
   }
 }

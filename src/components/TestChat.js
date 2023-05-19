@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import SockJS from "sockjs-client";
 import Stomp from "stompjs";
-import { WS_ENDPOINT } from "../api";
+import { WS_ENDPOINT } from "../lib/api";
 
 let stompClient = null;
 function TestChat() {
