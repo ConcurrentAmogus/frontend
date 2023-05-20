@@ -155,7 +155,6 @@ function Room() {
 
   function handlePublicMessage(payload) {
     var payloadData = JSON.parse(payload.body);
-
     publicChats.push(payloadData);
     setPublicChats([...publicChats]);
   }
@@ -168,7 +167,6 @@ function Room() {
   }
 
   function handleSendMessage(message) {
-    console.log("user send", user);
     setMessageData({
       senderName: user.username,
       message: message,
@@ -176,35 +174,39 @@ function Room() {
   }
 
   function sendPublicMsg() {
-    if (stompClient) {
-      stompClient.send(
-        "/ws/send-public-message",
-        {},
-        JSON.stringify({
-          room: roomData,
-          message: messageData,
-        })
-      );
-      setMessageData({ ...messageData, message: "" });
+    if (messageData.message.trim() !== "") {
+      if (stompClient) {
+        stompClient.send(
+          "/ws/send-public-message",
+          {},
+          JSON.stringify({
+            room: roomData,
+            message: messageData,
+          })
+        );
+        setMessageData({ ...messageData, message: "" });
+      }
     }
   }
 
   function sendPrivateMsg() {
-    if (stompClient) {
-      stompClient.send(
-        "/ws/send-private-message",
-        {},
-        JSON.stringify({
-          room: roomData,
-          user: {
-            id: user.id,
-            username: user.username,
-            role: role,
-          },
-          message: messageData,
-        })
-      );
-      setMessageData({ ...messageData, message: "" });
+    if (messageData.message.trim() !== "") {
+      if (stompClient) {
+        stompClient.send(
+          "/ws/send-private-message",
+          {},
+          JSON.stringify({
+            room: roomData,
+            user: {
+              id: user.id,
+              username: user.username,
+              role: role,
+            },
+            message: messageData,
+          })
+        );
+        setMessageData({ ...messageData, message: "" });
+      }
     }
   }
 
