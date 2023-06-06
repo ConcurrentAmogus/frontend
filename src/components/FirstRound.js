@@ -23,6 +23,9 @@ function FirstRound(){
                 return; //go to next part
             }
 
+            const roles = generateRoles(gameState.players.length);
+            
+            //write noti logic 
             setGameState({
                 ...gameState,
                 inLobby: false,
@@ -34,18 +37,65 @@ function FirstRound(){
                 players: [...gameState.players, `Player ${gameState.players.length + 1}`],
             });
         };
-        const selectPlayer = (player) =>{
-            setGameState({
-                ...gameState,
-                selectedPlayer: player, 
-            });
+        // const selectPlayer = (player) =>{
+        //     setGameState({
+        //         ...gameState,
+        //         selectedPlayer: player, 
+        //     });
+        // };
+        // const votePlayer = (player) =>{
+        //     //Update gamestate based on voting result
+        //     setGameState({
+        //         ...gameState,
+        //     });
+        // };
+
+        useEffect(() => {
+            connectWebSocket();
+            return() =>{
+                if(stompClient !== null){
+                    stompClient.disconnect();
+                }
+            };
+        }, []);
+
+        // WebSocket connection
+        function connectWebSocket() {
+            const socket = new SockJS(WS_ENDPOINT);
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, handleConnect, handleError);
+        }
+
+        function handleConnect() { //need to modify
+            console.log("Connected to the WebSocket");
+            socket.onmessage = (event)=>{
+                const message = JSON.parse(event.data);
+                handleIncomingMsg(message);
+            };
+        }
+
+        function handleError(err) {
+            alert("Error in connecting WebSocket ", err);
+        }
+
+        function handleIncomingMsg(message){
+            if(message.type ==='roles'){
+                const roles = message.data;
+                setGameState({
+                    ...gameState,
+                    roles: roles,
+                });
+            }
         };
-        const votePlayer = (player) =>{
-            //Update gamestate based on voting result
-            setGameState({
-                ...gameState,
-            });
-        };
+
+        function sendRolesToPlayers(players, roles){
+            const message = {
+                type: 'roles',
+                data: roles,
+            };
+            const jsonMessage = JSON.stringify(message);
+            stompClient.send('/app/sendRoles', {}, jsonMessage);
+        }
 
         return(
             <div>
@@ -80,6 +130,12 @@ function FirstRound(){
             </div>
         );
     };
+    const generateRoles = (numOfPlayers) => {
+        //hard code first
+        const roles = ['Werewolf', 'Seer', 'Villager']
+        return roles;
+    };
+    return werewolfGame;
 }
 
 export default FirstRound;
