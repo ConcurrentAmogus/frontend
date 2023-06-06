@@ -18,7 +18,7 @@ function FirstRound(){
                 alert('Minimum 5 players to start the game.');
                 return;
             }
-            if(gameState.players.length==16){
+            if(gameState.players.length==12){
                 alert('Room is full...loading');
                 return; //go to next part
             }
@@ -28,6 +28,7 @@ function FirstRound(){
             setGameState({
                 ...gameState,
                 inLobby: false,
+                roles: roles,
             });
         };
         const joinGame = () =>{
@@ -130,9 +131,33 @@ function FirstRound(){
         );
     };
     const generateRoles = (numOfPlayers) => {
-        //hard code first
-        const roles = ['Werewolf', 'Seer', 'Villager']
-        return roles;
+        let numOfWerewolf;
+        let numOfSeer;
+
+        if(numOfPlayers >= 5 && numOfPlayers <=6){
+            numOfWerewolf=1;
+            numOfSeer=1;
+        }
+        else if(numOfPlayers >= 7 && numOfPlayers <=9){
+            numOfWerewolf=2;
+            numOfSeer=1;
+        }
+        else if(numOfPlayers >= 10 && numOfPlayers <=12){
+            numOfWerewolf=3;
+            numOfSeer=2;
+        }
+        else{
+            return [];
+        }
+
+        const roles = [];
+        roles.push('Werewolf'.repeat(numOfWerewolf));
+        roles.push('Seer'.repeat(numOfSeer));
+        roles.push('Villager'.repeat(numOfPlayers-numOfSeer-numOfWerewolf));
+
+        //shuffle roles
+        const shuffleRoles = roles.flat().sort(()=>Math.random()-0.5);
+        return shuffleRoles;
     };
     return werewolfGame;
 }
