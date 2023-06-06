@@ -25,7 +25,6 @@ function FirstRound(){
 
             const roles = generateRoles(gameState.players.length);
             
-            //write noti logic 
             setGameState({
                 ...gameState,
                 inLobby: false,
