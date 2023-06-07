@@ -93,6 +93,22 @@ function Home() {
             if (!userIsExisted()) {
               createNewUser();
             }
+
+            const user = userList.filter(
+              (user) => user.username === username.trim()
+            )[0];
+
+            const room = {
+              id: roomId,
+              newRoom: false,
+              host: null,
+              newJoinPlayer: user,
+            };
+
+            stompClient.send("/ws/update-room", {}, JSON.stringify(room));
+            // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
+            // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
+            // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
             navigate(`/room/${roomId}`);
           } else {
             const reason = roomAvailability.reason;
@@ -100,6 +116,8 @@ function Home() {
               alert("Sorry, the game has been started.");
             } else if (reason === "ENDED") {
               alert("Sorry, the game is ended.");
+            } else if (reason === "FULL") {
+              alert("Sorry, the room is full.");
             } else {
               alert("Sorry, the game room is not existed.");
             }
@@ -119,10 +137,17 @@ function Home() {
         createNewUser();
       }
 
+      const host = userList.filter(
+        (user) => user.username === username.trim()
+      )[0];
+
       const newRoom = {
         id: uuid().slice(0, 5),
         status: "WAITING",
         newRoom: true,
+        host: host,
+        newJoinPlayer: host,
+        players: [],
       };
 
       stompClient.send("/ws/update-room", {}, JSON.stringify(newRoom));
@@ -147,10 +172,14 @@ function Home() {
 
   return (
     <div className="bg-[url('/src/img/bg-home.jpg')] h-screen bg-no-repeat bg-center bg-cover">
-      <div className="flex flex-col w-1/3  text-center m-auto">
-        <img src={logo} alt="logo" className="w-5/6 h-5/6 m-auto pt-5" />
+      <div className="flex flex-col w-fit h-fit text-center m-auto">
+        <img
+          src={logo}
+          alt="logo"
+          className="w-8/12 h-8/12 m-auto pt-5 min-[1800px]:w-11/12 min-[1800px]:h-11/12"
+        />
 
-        <div className="pt-5 w-2/3 m-auto ">
+        <div className="pt-5 w-96 m-auto ">
           <div className="w-full">
             <span className="bg-warning p-3.5 rounded-l-lg font-bold">
               Username

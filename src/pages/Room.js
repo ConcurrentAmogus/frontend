@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useUserState } from "../context/UserContext";
+import { useUserDispatch, useUserState } from "../context/UserContext";
 import SockJS from "sockjs-client";
 import Stomp from "stompjs";
 import { WS_ENDPOINT } from "../lib/api";
@@ -10,99 +10,55 @@ import villager from "../img/villager.png";
 import { MdOutlineContentCopy } from "react-icons/md";
 import { ImExit } from "react-icons/im";
 import { useState } from "react";
+import { BsPeopleFill, BsFillPersonFill } from "react-icons/bs";
+import { GiWolfHowl } from "react-icons/gi";
+import { FaRegEye } from "react-icons/fa";
 
 let stompClient = null;
 function Room() {
+  /********************************************
+   VARIABLE
+   *********************************************/
   const roomId = useParams().roomId;
   const user = useUserState();
+  const userDispatch = useUserDispatch();
   const navigate = useNavigate();
 
+  /********************************************
+   STATE
+   *********************************************/
   const [publicChats, setPublicChats] = useState([]);
   const [privateChats, setPrivateChats] = useState([]);
+  const [tab, setTab] = useState("PUBLIC");
   const [roomData, setRoomData] = useState({
     id: "",
     status: "",
+    host: null,
+    players: [],
   });
   const [messageData, setMessageData] = useState({
     senderName: "",
     message: "",
   });
-  const [tab, setTab] = useState("PUBLIC");
 
-  // dummy data
-  const players = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-  const messages = [
-    {
-      senderName: "ys",
-      message: "Jom vote Alex",
-      color: "red",
-    },
-    {
-      senderName: "Alex",
-      message: "Don't vote me, I'm a villager only",
-      color: "blue",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "green",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "red",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "gray",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "purple",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "yellow",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "red",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "red",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "red",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "red",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "red",
-    },
-    {
-      senderName: "Annonymous",
-      message: "Who are the wolves?",
-      color: "red",
-    },
-  ];
-  const role = "Wolf";
-
+  /********************************************
+   CALLBACK
+   *********************************************/
   useEffect(() => {
     connectWebSocket();
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, []);
+
+  const handleBeforeUnload = (e) => {
+    e.preventDefault();
+    const message =
+      "Are you sure you want to leave? All provided data will be lost.";
+    e.returnValue = message;
+    return message;
+  };
 
   // WebSocket connection
   function connectWebSocket() {
@@ -116,10 +72,8 @@ function Room() {
     setRoomData({ ...roomData, id: roomId });
     subscribeRoom();
     subscribePublicChat();
-    // only subscribe if gt special role (Wolf / Seer)
-    if (role !== "Villager") {
-      subscribePrivateChat();
-    }
+    subscribePrivateChat(user.role);
+    getRoomInfo();
   }
 
   function handleError(err) {
@@ -136,25 +90,43 @@ function Room() {
     if (stompClient.connected) {
       stompClient.subscribe(`/chat/${roomId}/public`, handlePublicMessage);
     }
+
+    if (user != null) {
+      const msgData = {
+        senderName: "System",
+        message: user.username + " join the room",
+      };
+      sendPublicMsg(msgData);
+    }
   }
 
-  function subscribePrivateChat() {
-    if (stompClient.connected) {
-      stompClient.subscribe(
-        `/chat/${roomId}-${role}/private`,
-        handlePrivateMessage
-      );
+  function subscribePrivateChat(role) {
+    if (role !== "Villager") {
+      if (stompClient.connected) {
+        stompClient.subscribe(
+          `/chat/${roomId}-${role}/private`,
+          handlePrivateMessage
+        );
+      }
     }
   }
 
   function handleRoomPayload(payload) {
     var payloadData = JSON.parse(payload.body);
 
-    setRoomData({ id: roomId, status: payloadData.status });
+    const data = {
+      id: roomId,
+      status: payloadData.status,
+      host: payloadData.host,
+      players: payloadData.players,
+    };
+    setRoomData(data);
+    setCurrentUser(payloadData.players);
   }
 
   function handlePublicMessage(payload) {
     var payloadData = JSON.parse(payload.body);
+
     publicChats.push(payloadData);
     setPublicChats([...publicChats]);
   }
@@ -173,14 +145,15 @@ function Room() {
     });
   }
 
-  function sendPublicMsg() {
+  function sendPublicMsg(messageData) {
     if (messageData.message.trim() !== "") {
-      if (stompClient) {
+      if (stompClient.connected) {
+        console.log("messageData", messageData);
         stompClient.send(
           "/ws/send-public-message",
           {},
           JSON.stringify({
-            room: roomData,
+            room: { id: roomId },
             message: messageData,
           })
         );
@@ -189,102 +162,212 @@ function Room() {
     }
   }
 
-  function sendPrivateMsg() {
+  function sendPrivateMsg(messageData) {
     if (messageData.message.trim() !== "") {
-      if (stompClient) {
+      if (stompClient.connected) {
         stompClient.send(
           "/ws/send-private-message",
           {},
           JSON.stringify({
-            room: roomData,
-            user: {
-              id: user.id,
-              username: user.username,
-              role: role,
-            },
+            room: { id: roomId },
+            user: user,
             message: messageData,
           })
         );
         setMessageData({ ...messageData, message: "" });
+      }
+    }
+  }
+
+  function setCurrentUser(players) {
+    if (user !== null) {
+      const currentUser = players.filter((player) => player.id === user.id)[0];
+      userDispatch({
+        type: "SET_USER_DATA",
+        payload: currentUser,
+      });
+    }
+  }
+
+  function getRoomInfo() {
+    if (stompClient.connected) {
+      stompClient.send("/ws/get-room", {}, roomId);
+    }
+  }
+
+  function startGame() {
+    if (roomData.players.length < 5) {
+      alert("Minimum 5 players are needed to start the game.");
+    } else {
+      if (stompClient.connected) {
+        stompClient.send("/ws/start-game", {}, JSON.stringify(roomData));
       }
     }
   }
 
   function exitRoom() {
     if (window.confirm("Are you sure to exit the room?")) {
+      const room = {
+        ...roomData,
+        exitPlayer: user,
+      };
+      if (stompClient.connected) {
+        stompClient.send("/ws/exit-room", {}, JSON.stringify(room));
+      }
       navigate("/");
     }
   }
 
+  function getImage(playerRole) {
+    let image = null;
+
+    if (user.role === "Wolf") {
+      image = playerRole === "Wolf" ? wolf : villager;
+    } else if (user.role === "Seer") {
+      image = playerRole === "Seer" ? seer : villager;
+    } else {
+      image = villager;
+    }
+
+    return image;
+  }
+
+  console.log("user state", user);
+  console.log("room state ", roomData);
+
   return (
-    <div className="bg-[url('/src/img/bg-room-night.jpg')] h-screen bg-no-repeat bg-center bg-cover flex flex-row">
+    <div className="bg-[url('/src/img/bg-room-night.jpg')] h-screen bg-no-repeat bg-center bg-cover overflow-y-auto flex flex-row">
       <div className=" flex-auto w-64">
         {/* Players */}
-        <div className="grid grid-cols-4 gap-y-2 py-5 px-5 pl-14 min-[2000px]:py-10">
-          {players.map((player) => {
-            return (
-              <div key={player}>
-                <div className="card w-44 py-2 shadow-xl bg-white bg-opacity-60 min-[1800px]:w-44 min-[2000px]:w-48  ">
-                  <figure>
-                    <img
-                      src={wolf}
-                      alt="Wolf"
-                      className="w-36 min-[2000px]:w-48"
-                    />
-                  </figure>
-                  <div></div>
+        <div className="grid grid-cols-4 gap-y-2 py-3 px-5 pl-14 max-[1210px]:grid-cols-3">
+          {roomData.players.map((player) => {
+            if (player != null) {
+              return (
+                <div key={player.id}>
+                  <div className="card w-36 py-2 shadow-xl bg-black bg-opacity-60 min-[1800px]:w-44 min-[1900px]:w-48 max-[1480px]:w-36 max-[1210px]:w-30 ">
+                    <figure>
+                      <img
+                        src={getImage(player.role)}
+                        alt="Wolf"
+                        className="w-32 min-[1800px]:w-44"
+                      />
+                    </figure>
+                    <div></div>
+                  </div>
+                  <div
+                    className={`badge badge-error  w-fit mr-8 mt-2 font-bold min-[2000px]:mr-16`}
+                  >
+                    {player.username}
+                  </div>
                 </div>
-                <div className="badge badge-error w-fit mr-8 mt-2 font-bold min-[2000px]:mr-16">
-                  1
-                </div>
-              </div>
-            );
+              );
+            }
           })}
         </div>
       </div>
       <div className="flex-auto w-32 flex flex-col h-full">
         {/* Room Details */}
-        <div className="flex-auto h-60 pr-8 pt-5 pb-2 flex flex-col">
-          <div className="bg-black bg-opacity-70 border-gray-500 border-solid border-2 w-full h-full rounded-2xl shadow-2xl text-white flex flex-col">
-            <div className=" w-full h-20 flex px-7 items-center border-b-2 border-white">
-              <div className="flex h-full items-center">
-                <h1 className="text-2xl">
-                  <span className="font-bold ">Room ID:</span> {roomId}
+        <div className="flex-auto h-48 pr-8 pt-5 pb-2 flex flex-col">
+          <div className="bg-black bg-opacity-70 border-gray-500 border-solid border-2 w-full h-full rounded-2xl shadow-2xl text-white flex flex-col justify-between pb-3">
+            {/* Top */}
+            <div className=" w-full h-1/6 flex justify-between px-7 items-center border-b-2 border-white ">
+              {/* Room ID */}
+              <div className="flex h-1/6 items-center ">
+                <h1 className="text-lg">
+                  <span className="font-semibold ">Room ID:</span> {roomId}
                 </h1>
-                <MdOutlineContentCopy
-                  title="Copy room id"
-                  className="text-xl ml-5 cursor-pointer"
-                  onClick={() => {
-                    navigator.clipboard.writeText(roomId);
-                    alert("Copied room id");
-                  }}
-                />
+                {roomData.status !== "STARTED" && (
+                  <MdOutlineContentCopy
+                    title="Copy room id to clipboard"
+                    className="text-xl ml-3 cursor-pointer"
+                    onClick={() => {
+                      navigator.clipboard.writeText(roomId);
+                      alert("Copied to clipboard");
+                    }}
+                  />
+                )}
               </div>
-              <div className=" flex flex-auto h-full items-center justify-end">
-                <ImExit
-                  title="Exit the room"
-                  className="text-xl cursor-pointer hover:text-red-500"
+
+              <div className="flex items-center text-xl mr-5 ">
+                <BsPeopleFill />
+                <p className="ml-3">{roomData.players.length}/16</p>
+              </div>
+
+              {/* Exit Room button */}
+              {roomData.status !== "STARTED" && (
+                <div
+                  className="flex items-center text-xl cursor-pointer hover:text-red-500"
                   onClick={exitRoom}
-                />
+                >
+                  <ImExit title="Exit the room" className="mr-3 mt-1" />
+                  <p>Exit</p>
+                </div>
+              )}
+            </div>
+
+            {/* Middle */}
+            <div className="text-2xl text-green-400 h-1/6 w-full flex ">
+              {roomData.status === "STARTED" ? (
+                <h1 className="m-auto">Discussions in 30s...</h1>
+              ) : (
+                <h1 className="m-auto">
+                  Still waiting for other players to join...
+                </h1>
+              )}
+            </div>
+
+            {roomData.status === "STARTED" && (
+              <div className="flex flex-col w-full">
+                <div className="flex text-6xl mx-auto justify-evenly w-10/12 ">
+                  <GiWolfHowl />
+                  <FaRegEye />
+                  <BsFillPersonFill />
+                </div>
+
+                <div className="mx-auto w-10/12 h-2/3 mt-2 ">
+                  <div className="flex flex-col m-auto w-fit text-lg text-left mt-3">
+                    <p>
+                      <b>Role:</b> Wolf
+                    </p>
+                    <p>
+                      <b>Action:</b> Each night you can select a player to
+                      reveal their role.
+                    </p>
+                    <p>
+                      <b>Team:</b> Village
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="w-full h-20 flex justify-between items-center px-8 text-2xl">
-              <p>Night 1</p>
-              <p>00:07</p>
-              <p>9/10</p>
-            </div>
-            <div className="w-full h-full relative ">
-              <button className="btn bg-red-500 border-white absolute right-5 bottom-5">
-                Start Game
-              </button>
+            )}
+
+            {/* Bottom */}
+            <div className="w-full h-1/6 px-5  flex justify-end items-center">
+              {roomData.host != null &&
+                user.id === roomData.host.id &&
+                roomData.status !== "STARTED" && (
+                  <button
+                    onClick={startGame}
+                    className="btn bg-red-500 border-white "
+                  >
+                    Start Game
+                  </button>
+                )}
             </div>
           </div>
         </div>
 
         {/* Chat */}
-        <div className="flex-auto h-40 pb-10 pt-2 pr-8">
+        <div className="flex-auto h-52 pb-10 pt-2 pr-8">
           <div className="bg-black bg-opacity-70 border-gray-500 border-solid border-2 w-full h-full rounded-2xl shadow-2xl flex flex-col">
-            <div className="btn-group grid grid-cols-2">
+            {/* Tab */}
+            <div
+              className={`btn-group grid ${
+                roomData.status === "STARTED" && user.role !== "Villager"
+                  ? "grid-cols-2"
+                  : "grid-cols-1"
+              }`}
+            >
               <button
                 className={`btn btn-outline text-white ${
                   tab === "PRIVATE" && "bg-gray-300 bg-opacity-30"
@@ -293,22 +376,32 @@ function Room() {
               >
                 Public
               </button>
-              <button
-                className={`btn btn-outline text-white ${
-                  tab === "PUBLIC" && "bg-gray-300 bg-opacity-30"
-                }`}
-                onClick={() => setTab("PRIVATE")}
-              >
-                Private (Wolf)
-              </button>
+              {roomData.status === "STARTED" && user.role !== "Villager" ? (
+                <button
+                  className={`btn btn-outline text-white ${
+                    tab === "PUBLIC" && "bg-gray-300 bg-opacity-30"
+                  }`}
+                  onClick={() => setTab("PRIVATE")}
+                >
+                  Private ({user.role})
+                </button>
+              ) : null}
             </div>
 
+            {/* Chat Content and Send button */}
             {tab === "PUBLIC" ? (
               <>
                 <div className="h-full p-5 text-white text-left overflow-y-auto">
                   {publicChats.map((msg, index) => {
                     return (
-                      <p key={index} className="text-lg text-red-300">
+                      <p
+                        key={index}
+                        className={`text-lg ${
+                          msg.senderName === "System"
+                            ? "text-red-400"
+                            : "text-green-300"
+                        }`}
+                      >
                         [{msg.senderName}]: {msg.message}
                       </p>
                     );
@@ -327,7 +420,7 @@ function Room() {
                     <button
                       type="button"
                       className="btn btn-square bg-green-700 w-20"
-                      onClick={sendPublicMsg}
+                      onClick={() => sendPublicMsg(messageData)}
                     >
                       Send
                     </button>
@@ -339,7 +432,7 @@ function Room() {
                 <div className="h-full p-5 text-white text-left overflow-y-auto">
                   {privateChats.map((msg, index) => {
                     return (
-                      <p key={index} className="text-lg text-red-300">
+                      <p key={index} className="text-lg text-green-300">
                         [{msg.senderName}]: {msg.message}
                       </p>
                     );
@@ -358,7 +451,7 @@ function Room() {
                     <button
                       type="button"
                       className="btn btn-square bg-green-700 w-20"
-                      onClick={sendPrivateMsg}
+                      onClick={() => sendPrivateMsg(messageData)}
                     >
                       Send
                     </button>
