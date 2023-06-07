@@ -10,6 +10,8 @@ import villager from "../img/villager.png";
 import { MdOutlineContentCopy } from "react-icons/md";
 import { ImExit } from "react-icons/im";
 import { useState } from "react";
+import Timer from "../components/Timer"
+import GameResult from '../components/GameResult'; 
 
 let stompClient = null;
 function Room() {
@@ -19,6 +21,8 @@ function Room() {
 
   const [publicChats, setPublicChats] = useState([]);
   const [privateChats, setPrivateChats] = useState([]);
+  const [isGameResultVisible, setIsGameResultVisible] = useState(false);
+  const [gameWinner, setGameWinner] = useState(null);
   const [roomData, setRoomData] = useState({
     id: "",
     status: "",
@@ -28,6 +32,7 @@ function Room() {
     message: "",
   });
   const [tab, setTab] = useState("PUBLIC");
+  const [remainingTime, setRemainingTime] = useState();
 
   // dummy data
   const players = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
@@ -116,6 +121,7 @@ function Room() {
     setRoomData({ ...roomData, id: roomId });
     subscribeRoom();
     subscribePublicChat();
+    subscribeTimer();
     // only subscribe if gt special role (Wolf / Seer)
     if (role !== "Villager") {
       subscribePrivateChat();
@@ -147,10 +153,28 @@ function Room() {
     }
   }
 
+  // function subscribeTimer(phase) {
+  //   if (stompClient.connected) {
+  //     stompClient.subscribe(`/remaining-time/${roomId}/${phase}`, handleTimerPayload);
+  //   }
+  // }
+
+  function subscribeTimer() {
+    if (stompClient.connected) {
+      stompClient.subscribe(`/remaining-time/${roomId}`, handleTimerPayload);
+    }
+  }
+
   function handleRoomPayload(payload) {
     var payloadData = JSON.parse(payload.body);
 
     setRoomData({ id: roomId, status: payloadData.status });
+  }
+
+  function handleTimerPayload(payload) {
+    if (payload.body) {
+      setRemainingTime(parseInt(payload.body));
+    }
   }
 
   function handlePublicMessage(payload) {
@@ -210,6 +234,15 @@ function Room() {
     }
   }
 
+  function endGame(winner) {
+    setGameWinner(winner);
+    setIsGameResultVisible(true);
+  }
+
+  function closeGameResult() {
+    setIsGameResultVisible(false);
+  }
+
   function exitRoom() {
     if (window.confirm("Are you sure to exit the room?")) {
       navigate("/");
@@ -261,6 +294,10 @@ function Room() {
                 />
               </div>
               <div className=" flex flex-auto h-full items-center justify-end">
+              <button onClick={() => endGame('Villager')}>End Game</button>
+                <GameResult winner={gameWinner} isVisible={isGameResultVisible} close={closeGameResult}/>
+              </div>
+              <div className=" flex flex-auto h-full items-center justify-end">
                 <ImExit
                   title="Exit the room"
                   className="text-xl cursor-pointer hover:text-red-500"
@@ -270,7 +307,8 @@ function Room() {
             </div>
             <div className="w-full h-20 flex justify-between items-center px-8 text-2xl">
               <p>Night 1</p>
-              <p>00:07</p>
+              {/* <p>00:07</p> */}
+              <Timer roomId={roomId} />
               <p>9/10</p>
             </div>
             <div className="w-full h-full relative ">
