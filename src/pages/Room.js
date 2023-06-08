@@ -121,7 +121,7 @@ function Room() {
   function subscribeTimer(phase) {
     phase = "night"; //for testing purpose
     if (stompClient && stompClient.connected) {
-      stompClient.subscribe(`/remaining-time/${roomId}/${phase}`, handleTimerPayload, (error) => {
+      stompClient.subscribe(`/timer/${roomId}/${phase}`, handleTimerPayload, (error) => {
         console.error('Failed to subscribe:', error);
       });
     }
