@@ -180,8 +180,11 @@ function Room() {
   }
 
   function setCurrentUser(players) {
+    console.log("players", players);
     if (user !== null) {
-      const currentUser = players.filter((player) => player.id === user.id)[0];
+      const currentUser = players.filter(
+        (player) => player !== null && player.id === user.id
+      )[0];
       userDispatch({
         type: "SET_USER_DATA",
         payload: currentUser,
