@@ -236,7 +236,7 @@ function Room() {
   }
 
   function startGame() {
-    if (roomData.players.length < 0) {
+    if (roomData.players.length < 5) {
       alert("Minimum 5 players are needed to start the game.");
     } else {
       if (stompClient.connected) {
