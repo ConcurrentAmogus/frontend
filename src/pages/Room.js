@@ -119,7 +119,7 @@ function Room() {
   }
 
   function subscribeTimer(phase) {
-    phase = "night";
+    phase = "night"; //for testing purpose
     if (stompClient && stompClient.connected) {
       stompClient.subscribe(`/remaining-time/${roomId}/${phase}`, handleTimerPayload, (error) => {
         console.error('Failed to subscribe:', error);
@@ -130,7 +130,7 @@ function Room() {
   function handleTimerPayload(message) {
     try {
       if (message.body) {
-        setRemainingTime(parseInt(message.body)); // <-- Update remaining time
+        setRemainingTime(parseInt(message.body));
       }
     } catch (error) {
       console.error('Failed to parse message body:', message.body, error);
@@ -227,9 +227,11 @@ function Room() {
 
   function startTimer() {
     if (stompClient.connected) {
-        console.log("got clicked?");
-        let phase = "night";
-        stompClient.send(`/ws/start-timer/${roomId}/${phase}`, {});
+        let phase = "night"; //for testing purpose
+        stompClient.send(`/ws/start-timer`, {},JSON.stringify({
+          roomId: roomId,
+          phase: phase,
+        }));
     }
   }
 
@@ -345,6 +347,7 @@ function Room() {
               <button onClick={() => endGame('Villager')}>End Game</button>
                 <GameResult winner={gameWinner} isVisible={isGameResultVisible} close={closeGameResult}/>
               </div>
+              {/* this timer for testing purpose*/}
               <Timer remainingTime={remainingTime} />
               {/* Exit Room button */}
               {roomData.status !== "STARTED" && (
@@ -361,7 +364,7 @@ function Room() {
             {/* Middle */}
             <div className="text-2xl text-green-400 h-1/6 w-full flex ">
               {roomData.status === "STARTED" ? (
-                <h1 className="m-auto"><Timer remainingTime={remainingTime} />Discussions in 30s...</h1>
+                <h1 className="m-auto">Discussions in 30s...</h1>
                 
               ) : (
                 <h1 className="m-auto">
