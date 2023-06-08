@@ -11,14 +11,23 @@ import { useUserDispatch, useUserState } from "../context/UserContext";
 
 let stompClient = null;
 function Home() {
+  /********************************************
+   VARIABLE
+   *********************************************/
   const navigate = useNavigate();
   const user = useUserState();
   const userDispatch = useUserDispatch();
 
+  /********************************************
+   STATE
+   *********************************************/
   const [username, setUsername] = useState("");
   const [roomId, setRoomId] = useState("");
   const [userList, setUserList] = useState([]);
 
+  /********************************************
+   CALLBACK
+   *********************************************/
   useEffect(() => {
     connectWebSocket();
     getAllUsers();
@@ -45,6 +54,12 @@ function Home() {
     const data = res.data;
 
     setUserList(data);
+  }
+
+  async function getRoom(roomId) {
+    const res = await axios.get(ROOM_API + `/${roomId}`);
+
+    return res.data;
   }
 
   async function getRoomAvailability() {
@@ -78,6 +93,12 @@ function Home() {
 
       let currentUser = null;
       if (roomAvailability.available === "true") {
+        const joined = await userIsJoined();
+        if (joined) {
+          alert("Sorry, the user is already in the room");
+          return;
+        }
+
         if (!userIsExisted()) {
           currentUser = await createNewUser();
         } else {
@@ -150,6 +171,16 @@ function Home() {
         payload: existedUser[0],
       });
     }
+    return existedUser.length > 0;
+  }
+
+  async function userIsJoined() {
+    const room = await getRoom(roomId);
+
+    const existedUser = room.players.filter(
+      (player) => player.username === username.trim()
+    );
+
     return existedUser.length > 0;
   }
 
