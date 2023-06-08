@@ -7,11 +7,12 @@ import { v4 as uuid } from "uuid";
 import { useNavigate } from "react-router-dom";
 import SockJS from "sockjs-client";
 import Stomp from "stompjs";
-import { useUserDispatch } from "../context/UserContext";
+import { useUserDispatch, useUserState } from "../context/UserContext";
 
 let stompClient = null;
 function Home() {
   const navigate = useNavigate();
+  const user = useUserState();
   const userDispatch = useUserDispatch();
 
   const [username, setUsername] = useState("");
@@ -49,97 +50,79 @@ function Home() {
   async function getRoomAvailability() {
     const res = await axios.get(ROOM_API + `/check-availability/${roomId}`);
 
-    return res;
+    return res.data;
   }
 
-  function createNewUser() {
+  async function createNewUser() {
     const newUser = {
       id: uuid().slice(0, 5),
       username: username,
       record: [0, 0],
     };
 
-    axios
-      .post(USER_API, newUser)
-      .then((res) => {
-        handleCreateNewUserResponse(res);
-      })
-      .catch((err) => {
-        handleCreateNewUserError(err);
-      });
-  }
-
-  function handleCreateNewUserResponse(res) {
-    const user = res.data;
-
     userDispatch({
       type: "SET_USER_DATA",
-      payload: user,
+      payload: newUser,
     });
-  }
 
-  function handleCreateNewUserError(err) {
-    alert(err);
+    const res = await axios.post(USER_API, newUser);
+
+    return res.data;
   }
 
   // Action
-  function joinRoom() {
+  async function joinRoom() {
     if (username.trim() !== "" && roomId.trim() !== "") {
-      getRoomAvailability()
-        .then((res) => {
-          const roomAvailability = res.data;
+      const roomAvailability = await getRoomAvailability();
+      console.log("roomAvailability", roomAvailability);
 
-          if (roomAvailability.available === "true") {
-            if (!userIsExisted()) {
-              createNewUser();
-            }
+      let currentUser = null;
+      if (roomAvailability.available === "true") {
+        if (!userIsExisted()) {
+          currentUser = await createNewUser();
+        } else {
+          currentUser = userList.filter(
+            (user) => user.username === username.trim()
+          )[0];
+        }
 
-            const user = userList.filter(
-              (user) => user.username === username.trim()
-            )[0];
+        const room = {
+          id: roomId,
+          newRoom: false,
+          host: null,
+          newJoinPlayer: currentUser,
+        };
 
-            const room = {
-              id: roomId,
-              newRoom: false,
-              host: null,
-              newJoinPlayer: user,
-            };
-
-            stompClient.send("/ws/update-room", {}, JSON.stringify(room));
-            // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
-            // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
-            // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
-            navigate(`/room/${roomId}`);
-          } else {
-            const reason = roomAvailability.reason;
-            if (reason === "STARTED") {
-              alert("Sorry, the game has been started.");
-            } else if (reason === "ENDED") {
-              alert("Sorry, the game is ended.");
-            } else if (reason === "FULL") {
-              alert("Sorry, the room is full.");
-            } else {
-              alert("Sorry, the game room is not existed.");
-            }
-          }
-        })
-        .catch((err) => {
-          alert(err);
-        });
+        stompClient.send("/ws/update-room", {}, JSON.stringify(room));
+        // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
+        // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
+        // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
+        navigate(`/room/${roomId}`);
+      } else {
+        const reason = roomAvailability.reason;
+        if (reason === "STARTED") {
+          alert("Sorry, the game has been started.");
+        } else if (reason === "ENDED") {
+          alert("Sorry, the game is ended.");
+        } else if (reason === "FULL") {
+          alert("Sorry, the room is full.");
+        } else {
+          alert("Sorry, the game room is not existed.");
+        }
+      }
     } else {
       alert("Please enter your username and room id before joining a room");
     }
   }
 
-  function createRoom() {
+  async function createRoom() {
     if (username.trim() !== "") {
+      let host = null;
       if (!userIsExisted()) {
-        createNewUser();
+        host = await createNewUser();
+      } else {
+        host = userList.filter((user) => user.username === username.trim())[0];
       }
-
-      const host = userList.filter(
-        (user) => user.username === username.trim()
-      )[0];
 
       const newRoom = {
         id: uuid().slice(0, 5),

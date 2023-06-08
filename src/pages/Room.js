@@ -207,6 +207,7 @@ function Room() {
   }
 
   function setCurrentUser(players) {
+    console.log("players", players);
     if (user !== null) {
       const currentUser = players.filter(
         (player) => player !== null && player.id === user.id

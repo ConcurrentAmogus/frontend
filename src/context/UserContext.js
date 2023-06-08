@@ -1,6 +1,4 @@
-import { createContext } from "react";
-import { useReducer } from "react";
-import { useContext } from "react";
+import React, { useContext, useReducer } from "react";
 
 const initialState = {
   id: "",
@@ -21,8 +19,8 @@ const UserReducer = (initialState, action) => {
   }
 };
 
-const UserStateContext = createContext();
-const UserDispatchContext = createContext();
+const UserStateContext = React.createContext();
+const UserDispatchContext = React.createContext();
 
 export function useUserState() {
   const context = useContext(UserStateContext);
