@@ -10,6 +10,8 @@ import villager from "../img/villager.png";
 import { MdOutlineContentCopy } from "react-icons/md";
 import { ImExit } from "react-icons/im";
 import { useState } from "react";
+import Timer from "../components/Timer"
+import GameResult from '../components/GameResult'; 
 import { BsPeopleFill, BsFillPersonFill } from "react-icons/bs";
 import { GiWolfHowl } from "react-icons/gi";
 import { FaRegEye } from "react-icons/fa";
@@ -30,16 +32,20 @@ function Room() {
   const [publicChats, setPublicChats] = useState([]);
   const [privateChats, setPrivateChats] = useState([]);
   const [tab, setTab] = useState("PUBLIC");
+  const [isGameResultVisible, setIsGameResultVisible] = useState(false);
+  const [gameWinner, setGameWinner] = useState(null);
   const [roomData, setRoomData] = useState({
     id: "",
     status: "",
     host: null,
     players: [],
+    phase: "",
   });
   const [messageData, setMessageData] = useState({
     senderName: "",
     message: "",
   });
+  const [remainingTime, setRemainingTime] = useState(0);
 
   /********************************************
    CALLBACK
@@ -74,6 +80,7 @@ function Room() {
     subscribePublicChat();
     subscribePrivateChat(user.role);
     getRoomInfo();
+    subscribeTimer(roomData.phase);
   }
 
   function handleError(err) {
@@ -111,6 +118,25 @@ function Room() {
     }
   }
 
+  function subscribeTimer(phase) {
+    phase = "night"; //for testing purpose
+    if (stompClient && stompClient.connected) {
+      stompClient.subscribe(`/timer/${roomId}/${phase}`, handleTimerPayload, (error) => {
+        console.error('Failed to subscribe:', error);
+      });
+    }
+  };
+
+  function handleTimerPayload(message) {
+    try {
+      if (message.body) {
+        setRemainingTime(parseInt(message.body));
+      }
+    } catch (error) {
+      console.error('Failed to parse message body:', message.body, error);
+    }
+  };
+
   function handleRoomPayload(payload) {
     var payloadData = JSON.parse(payload.body);
 
@@ -119,6 +145,7 @@ function Room() {
       status: payloadData.status,
       host: payloadData.host,
       players: payloadData.players,
+      phase: payloadData.phase,
     };
     setRoomData(data);
     setCurrentUser(payloadData.players);
@@ -198,14 +225,35 @@ function Room() {
     }
   }
 
+  function startTimer() {
+    if (stompClient.connected) {
+        let phase = "night"; //for testing purpose
+        stompClient.send(`/ws/start-timer`, {},JSON.stringify({
+          roomId: roomId,
+          phase: phase,
+        }));
+    }
+  }
+
   function startGame() {
     if (roomData.players.length < 5) {
       alert("Minimum 5 players are needed to start the game.");
     } else {
       if (stompClient.connected) {
         stompClient.send("/ws/start-game", {}, JSON.stringify(roomData));
+        startTimer();
       }
     }
+  }
+
+  function endGame(winner) {
+    startTimer();
+    setGameWinner(winner);
+    setIsGameResultVisible(true);
+  }
+
+  function closeGameResult() {
+    setIsGameResultVisible(false);
   }
 
   function exitRoom() {
@@ -295,7 +343,12 @@ function Room() {
                 <BsPeopleFill />
                 <p className="ml-3">{roomData.players.length}/16</p>
               </div>
-
+              <div className=" flex flex-auto h-full items-center justify-end">
+              <button onClick={() => endGame('Villager')}>End Game</button>
+                <GameResult winner={gameWinner} isVisible={isGameResultVisible} close={closeGameResult}/>
+              </div>
+              {/* this timer for testing purpose*/}
+              <Timer remainingTime={remainingTime} />
               {/* Exit Room button */}
               {roomData.status !== "STARTED" && (
                 <div
@@ -312,13 +365,13 @@ function Room() {
             <div className="text-2xl text-green-400 h-1/6 w-full flex ">
               {roomData.status === "STARTED" ? (
                 <h1 className="m-auto">Discussions in 30s...</h1>
+                
               ) : (
                 <h1 className="m-auto">
                   Still waiting for other players to join...
                 </h1>
               )}
             </div>
-
             {roomData.status === "STARTED" && (
               <div className="flex flex-col w-full">
                 <div className="flex text-6xl mx-auto justify-evenly w-10/12 ">
