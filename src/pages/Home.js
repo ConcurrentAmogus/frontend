@@ -15,7 +15,6 @@ function Home() {
    VARIABLE
    *********************************************/
   const navigate = useNavigate();
-  const user = useUserState();
   const userDispatch = useUserDispatch();
 
   /********************************************
@@ -107,6 +106,11 @@ function Home() {
           )[0];
         }
 
+        userDispatch({
+          type: "SET_USER_DATA",
+          payload: currentUser,
+        });
+
         const room = {
           id: roomId,
           newRoom: false,
@@ -144,6 +148,11 @@ function Home() {
       } else {
         host = userList.filter((user) => user.username === username.trim())[0];
       }
+
+      userDispatch({
+        type: "SET_USER_DATA",
+        payload: host,
+      });
 
       const newRoom = {
         id: uuid().slice(0, 5),

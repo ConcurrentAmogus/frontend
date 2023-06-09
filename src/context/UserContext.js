@@ -3,6 +3,7 @@ import React, { useContext, useReducer } from "react";
 const initialState = {
   id: "",
   username: "",
+  number: "",
   record: [0, 0],
   role: "",
   isAlive: true,

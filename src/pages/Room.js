@@ -10,11 +10,12 @@ import villager from "../img/villager.png";
 import { MdOutlineContentCopy } from "react-icons/md";
 import { ImExit } from "react-icons/im";
 import { useState } from "react";
-import Timer from "../components/Timer"
-import GameResult from '../components/GameResult'; 
+import Timer from "../components/Timer";
+import GameResult from "../components/GameResult";
 import { BsPeopleFill, BsFillPersonFill } from "react-icons/bs";
 import { GiWolfHowl } from "react-icons/gi";
 import { FaRegEye } from "react-icons/fa";
+import Screen from "../components/Screen";
 
 let stompClient = null;
 function Room() {
@@ -34,6 +35,7 @@ function Room() {
   const [tab, setTab] = useState("PUBLIC");
   const [isGameResultVisible, setIsGameResultVisible] = useState(false);
   const [gameWinner, setGameWinner] = useState(null);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [roomData, setRoomData] = useState({
     id: "",
     status: "",
@@ -44,6 +46,13 @@ function Room() {
   const [messageData, setMessageData] = useState({
     senderName: "",
     message: "",
+  });
+  const [voteData, setVoteData] = useState({
+    roomId: "",
+    votePlayer: null,
+    selectedPlayer: null,
+    votes: {},
+    gameEnded: false,
   });
   const [remainingTime, setRemainingTime] = useState(0);
 
@@ -57,6 +66,11 @@ function Room() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
+
+  useEffect(() => {
+    subscribeNightVote(user.role);
+    subscribePrivateChat(user.role);
+  }, [user.role]);
 
   const handleBeforeUnload = (e) => {
     e.preventDefault();
@@ -76,11 +90,13 @@ function Room() {
   function handleConnect() {
     console.log("Connected to the WebSocket");
     setRoomData({ ...roomData, id: roomId });
+
     subscribeRoom();
+    subscribeTimer();
+    subscribePublicVote();
     subscribePublicChat();
-    subscribePrivateChat(user.role);
+
     getRoomInfo();
-    subscribeTimer(roomData.phase);
   }
 
   function handleError(err) {
@@ -90,6 +106,15 @@ function Room() {
   function subscribeRoom() {
     if (stompClient.connected) {
       stompClient.subscribe(`/room/${roomId}`, handleRoomPayload);
+    }
+  }
+
+  function subscribeTimer() {
+    // phase = "night"; //for testing purpose
+    if (stompClient && stompClient.connected) {
+      stompClient.subscribe(`/timer/${roomId}`, handleTimerPayload, (error) => {
+        console.error("Failed to subscribe:", error);
+      });
     }
   }
 
@@ -118,14 +143,28 @@ function Room() {
     }
   }
 
-  function subscribeTimer(phase) {
-    phase = "night"; //for testing purpose
-    if (stompClient && stompClient.connected) {
-      stompClient.subscribe(`/timer/${roomId}/${phase}`, handleTimerPayload, (error) => {
-        console.error('Failed to subscribe:', error);
-      });
+  function subscribePublicVote() {
+    if (stompClient.connected) {
+      stompClient.subscribe(`/vote/${roomId}/public`, handleVotePayload);
     }
-  };
+  }
+
+  function subscribeNightVote(role) {
+    if (role !== "Villager") {
+      if (stompClient.connected) {
+        stompClient.subscribe(
+          `/vote/${roomId}-${role}/night`,
+          handleVotePayload
+        );
+      }
+    }
+  }
+
+  function getRoomInfo() {
+    if (stompClient.connected) {
+      stompClient.send("/ws/get-room", {}, roomId);
+    }
+  }
 
   function handleTimerPayload(message) {
     try {
@@ -133,9 +172,9 @@ function Room() {
         setRemainingTime(parseInt(message.body));
       }
     } catch (error) {
-      console.error('Failed to parse message body:', message.body, error);
+      console.error("Failed to parse message body:", message.body, error);
     }
-  };
+  }
 
   function handleRoomPayload(payload) {
     var payloadData = JSON.parse(payload.body);
@@ -163,6 +202,17 @@ function Room() {
 
     privateChats.push(payloadData);
     setPrivateChats([...privateChats]);
+  }
+
+  function handleVotePayload(payload) {
+    var payloadData = JSON.parse(payload.body);
+
+    const data = {
+      roomId: payloadData.roomId,
+      votes: payloadData.votes,
+      gameEnded: payloadData.gameEnded,
+    };
+    setVoteData(data);
   }
 
   function handleSendMessage(message) {
@@ -219,29 +269,25 @@ function Room() {
     }
   }
 
-  function getRoomInfo() {
+  function startTimer(phase) {
     if (stompClient.connected) {
-      stompClient.send("/ws/get-room", {}, roomId);
-    }
-  }
-
-  function startTimer() {
-    if (stompClient.connected) {
-        let phase = "night"; //for testing purpose
-        stompClient.send(`/ws/start-timer`, {},JSON.stringify({
+      stompClient.send(
+        `/ws/start-timer`,
+        {},
+        JSON.stringify({
           roomId: roomId,
           phase: phase,
-        }));
+        })
+      );
     }
   }
 
-  function startGame() {
-    if (roomData.players.length < 5) {
-      alert("Minimum 5 players are needed to start the game.");
+  async function startGame() {
+    if (roomData.players.length < 0) {
+      alert("Minimum 5 players are needed to start the game");
     } else {
       if (stompClient.connected) {
         stompClient.send("/ws/start-game", {}, JSON.stringify(roomData));
-        startTimer();
       }
     }
   }
@@ -265,6 +311,17 @@ function Room() {
       if (stompClient.connected) {
         stompClient.send("/ws/exit-room", {}, JSON.stringify(room));
       }
+      if (user != null) {
+        const msgData = {
+          senderName: "System",
+          message: user.username + " exit the room",
+        };
+        sendPublicMsg(msgData);
+      }
+      userDispatch({
+        type: "SET_USER_DATA",
+        payload: null,
+      });
       navigate("/");
     }
   }
@@ -283,35 +340,142 @@ function Room() {
     return image;
   }
 
+  function handlePrivateVotePlayer(player) {
+    alert("??");
+
+    if (player.role !== user.role) {
+      if (stompClient.connected) {
+        stompClient.send(
+          "/ws/vote-private",
+          {},
+          JSON.stringify({
+            roomId: roomId,
+            votePlayer: user,
+            selectedPlayer: player,
+            votes: voteData.votes,
+          })
+        );
+      }
+    }
+  }
+
   console.log("user state", user);
   console.log("room state ", roomData);
+  console.log("vote state ", voteData);
+  console.log("vote ", voteData.votes[user.number]);
 
   return (
-    <div className="bg-[url('/src/img/bg-room-night.jpg')] h-screen bg-no-repeat bg-center bg-cover overflow-y-auto flex flex-row">
+    <div
+      className={`${
+        roomData.phase === "night"
+          ? "bg-[url('/src/img/bg-room-night.jpg')]"
+          : roomData.phase === "day"
+          ? "bg-[url('/src/img/bg-room-day.png')]"
+          : "bg-[url('/src/img/bg-room-evening.png')]"
+      } h-screen bg-no-repeat bg-center bg-cover overflow-y-auto flex flex-row`}
+    >
+      {roomData.status === "STARTING" && remainingTime > 0 ? (
+        <Screen msg={`Starting game in ${remainingTime / 1000}s...`} />
+      ) : null}
       <div className=" flex-auto w-64">
         {/* Players */}
-        <div className="grid grid-cols-4 gap-y-2 py-3 px-5 pl-14 max-[1210px]:grid-cols-3">
+        <div className="grid grid-cols-4 gap-y-2 py-3 px-5 pl-14 max-[1210px]:grid-cols-3 max-[700px]:grid-cols-2">
           {roomData.players.map((player) => {
             if (player != null) {
-              return (
-                <div key={player.id}>
-                  <div className="card w-36 py-2 shadow-xl bg-black bg-opacity-60 min-[1800px]:w-44 min-[1900px]:w-48 max-[1480px]:w-36 max-[1210px]:w-30 ">
-                    <figure>
-                      <img
-                        src={getImage(player.role)}
-                        alt="Wolf"
-                        className="w-32 min-[1800px]:w-44"
-                      />
-                    </figure>
-                    <div></div>
+              if (roomData.status !== "STARTED") {
+                return (
+                  <div key={player.id}>
+                    <div className="card w-36 py-2 shadow-xl bg-black bg-opacity-60 min-[1800px]:w-44 min-[1900px]:w-48 max-[1480px]:w-36 max-[1210px]:w-30 max-[1000px]:w-28">
+                      <figure>
+                        <img
+                          src={getImage(player.role)}
+                          alt="Role"
+                          className="w-32 min-[1800px]:w-44"
+                        />
+                      </figure>
+                      <div></div>
+                    </div>
+                    <div
+                      className={`badge ${
+                        user.id === player.id ? "badge-error" : "badge-success"
+                      } w-fit text-lg font-bold mr-8 mt-2 min-[2000px]:mr-16`}
+                    >
+                      {player.number} {player.username}
+                    </div>
                   </div>
-                  <div
-                    className={`badge badge-error  w-fit mr-8 mt-2 font-bold min-[2000px]:mr-16`}
-                  >
-                    {player.username}
-                  </div>
-                </div>
-              );
+                );
+              } else {
+                if (roomData.phase === "night") {
+                  return (
+                    <div key={player.id}>
+                      <div
+                        className={`relative card w-36 py-2 shadow-xl bg-black bg-opacity-60 min-[1800px]:w-44 min-[1900px]:w-48 max-[1480px]:w-36 max-[1210px]:w-30 max-[1000px]:w-28 ${
+                          user.role !== "Villager" &&
+                          user.role !== player.role &&
+                          player.id !== user.id
+                            ? "cursor-pointer hover:bg-gray-300 hover:scale-105 hover:bg-opacity-70 ease-in duration-200"
+                            : ""
+                        } `}
+                        onClick={() => handlePrivateVotePlayer(player)}
+                      >
+                        <figure>
+                          <img
+                            src={getImage(player.role)}
+                            alt="Role"
+                            className="w-32 min-[1800px]:w-44"
+                          />
+                        </figure>
+                        {voteData.votes[player.number] !== undefined &&
+                        user.role !== "Villager" &&
+                        user.role === player.role ? (
+                          <div className="badge badge-warning absolute bottom-3 right-2 font-bold">
+                            Vote {voteData.votes[player.number]}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div
+                        className={`badge ${
+                          user.id === player.id
+                            ? "badge-error"
+                            : "badge-success"
+                        } w-fit mr-8 mt-2 font-bold min-[2000px]:mr-16`}
+                      >
+                        {player.number} {player.username}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div key={player.id}>
+                      <div
+                        className={`card w-36 py-2 shadow-xl bg-black bg-opacity-60 min-[1800px]:w-44 min-[1900px]:w-48 max-[1480px]:w-36 max-[1210px]:w-30 max-[1000px]:w-28 ${
+                          player.id !== user.id
+                            ? "cursor-pointer hover:bg-gray-300 hover:scale-105 hover:bg-opacity-70 ease-in duration-200"
+                            : ""
+                        } `}
+                      >
+                        <figure>
+                          <img
+                            src={getImage(player.role)}
+                            alt="Role"
+                            className="w-32 min-[1800px]:w-44"
+                          />
+                        </figure>
+                        <div></div>
+                      </div>
+                      <div
+                        className={`badge ${
+                          user.id === player.id
+                            ? "badge-error"
+                            : "badge-success"
+                        } w-fit mr-8 mt-2 font-bold min-[2000px]:mr-16`}
+                      >
+                        {player.number} {player.username}
+                      </div>
+                    </div>
+                  );
+                }
+              }
             }
           })}
         </div>
@@ -321,11 +485,11 @@ function Room() {
         <div className="flex-auto h-48 pr-8 pt-5 pb-2 flex flex-col">
           <div className="bg-black bg-opacity-70 border-gray-500 border-solid border-2 w-full h-full rounded-2xl shadow-2xl text-white flex flex-col justify-between pb-3">
             {/* Top */}
-            <div className=" w-full h-1/6 flex justify-between px-7 items-center border-b-2 border-white ">
+            <div className=" w-full h-1/6 flex justify-between px-7 items-center border-b-2 border-white max-[1000px]:px-3">
               {/* Room ID */}
               <div className="flex h-1/6 items-center ">
-                <h1 className="text-lg">
-                  <span className="font-semibold ">Room ID:</span> {roomId}
+                <h1 className="text-lg flex ">
+                  <span className="font-semibold mr-1">Room ID: </span> {roomId}
                 </h1>
                 {roomData.status !== "STARTED" && (
                   <MdOutlineContentCopy
@@ -339,16 +503,20 @@ function Room() {
                 )}
               </div>
 
-              <div className="flex items-center text-xl mr-5 ">
+              <div className="flex items-center text-xl mr-5 max-[1000px]:mr-0">
                 <BsPeopleFill />
                 <p className="ml-3">{roomData.players.length}/16</p>
               </div>
-              <div className=" flex flex-auto h-full items-center justify-end">
-              <button onClick={() => endGame('Villager')}>End Game</button>
-                <GameResult winner={gameWinner} isVisible={isGameResultVisible} close={closeGameResult}/>
-              </div>
+              {/* <div className=" flex flex-auto h-full items-center justify-end">
+                <button onClick={() => endGame("Villager")}>End Game</button>
+                <GameResult
+                  winner={gameWinner}
+                  isVisible={isGameResultVisible}
+                  close={closeGameResult}
+                />
+              </div> */}
               {/* this timer for testing purpose*/}
-              <Timer remainingTime={remainingTime} />
+              {/* <Timer remainingTime={remainingTime} /> */}
               {/* Exit Room button */}
               {roomData.status !== "STARTED" && (
                 <div
@@ -364,8 +532,11 @@ function Room() {
             {/* Middle */}
             <div className="text-2xl text-green-400 h-1/6 w-full flex ">
               {roomData.status === "STARTED" ? (
-                <h1 className="m-auto">Discussions in 30s...</h1>
-                
+                <h1 className="m-auto">
+                  {user.role !== "Villager"
+                    ? `${user.role} discussions in ${remainingTime / 1000}s...`
+                    : "It's night time, go back to sleep Zzzz"}
+                </h1>
               ) : (
                 <h1 className="m-auto">
                   Still waiting for other players to join...
@@ -383,7 +554,7 @@ function Room() {
                 <div className="mx-auto w-10/12 h-2/3 mt-2 ">
                   <div className="flex flex-col m-auto w-fit text-lg text-left mt-3">
                     <p>
-                      <b>Role:</b> Wolf
+                      <b>Role:</b> Seer
                     </p>
                     <p>
                       <b>Action:</b> Each night you can select a player to
@@ -398,7 +569,11 @@ function Room() {
             )}
 
             {/* Bottom */}
-            <div className="w-full h-1/6 px-5  flex justify-end items-center">
+            <div
+              className={`w-full ${
+                roomData.status === "STARTED" ? "h-0" : "h-1/6"
+              } px-5  flex justify-end items-center`}
+            >
               {roomData.host != null &&
                 user.id === roomData.host.id &&
                 roomData.status !== "STARTED" && (
@@ -458,7 +633,8 @@ function Room() {
                             : "text-green-300"
                         }`}
                       >
-                        [{msg.senderName}]: {msg.message}
+                        [{msg.senderName}]:{" "}
+                        <span className="text-white">{msg.message}</span>
                       </p>
                     );
                   })}
