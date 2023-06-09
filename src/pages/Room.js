@@ -7,7 +7,8 @@ import { WS_ENDPOINT } from "../lib/api";
 import wolf from "../img/wolf.png";
 import seer from "../img/seer.png";
 import villager from "../img/villager.png";
-import { MdOutlineContentCopy } from "react-icons/md";
+import grave from "../img/grave.png";
+import { MdOutlineContentCopy, MdOutlineTimer } from "react-icons/md";
 import { ImExit } from "react-icons/im";
 import { useState } from "react";
 import Timer from "../components/Timer";
@@ -26,6 +27,23 @@ function Room() {
   const user = useUserState();
   const userDispatch = useUserDispatch();
   const navigate = useNavigate();
+  const description = [
+    {
+      role: "Wolf",
+      action: "Each night you can choose a player to kill",
+      team: "Bad",
+    },
+    {
+      role: "Seer",
+      action: "Each night you can reveal a player's role",
+      team: "Good",
+    },
+    {
+      role: "Villager",
+      action: "Each day all villagers need to vote a player to find the wolf",
+      team: "Good",
+    },
+  ];
 
   /********************************************
    STATE
@@ -33,15 +51,18 @@ function Room() {
   const [publicChats, setPublicChats] = useState([]);
   const [privateChats, setPrivateChats] = useState([]);
   const [tab, setTab] = useState("PUBLIC");
+  const [copied, setCopied] = useState(false);
   const [isGameResultVisible, setIsGameResultVisible] = useState(false);
   const [gameWinner, setGameWinner] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [roleDescription, setRoleDescription] = useState(0);
   const [roomData, setRoomData] = useState({
     id: "",
     status: "",
     host: null,
     players: [],
     phase: "",
+    winner: "",
   });
   const [messageData, setMessageData] = useState({
     senderName: "",
@@ -51,7 +72,10 @@ function Room() {
     roomId: "",
     votePlayer: null,
     selectedPlayer: null,
-    votes: {},
+    killedPlayer: null,
+    revealedRolePlayer: null,
+    message: "",
+    votes: null,
     gameEnded: false,
   });
   const [remainingTime, setRemainingTime] = useState(0);
@@ -93,7 +117,7 @@ function Room() {
 
     subscribeRoom();
     subscribeTimer();
-    subscribePublicVote();
+    subscribeDayVote();
     subscribePublicChat();
 
     getRoomInfo();
@@ -143,9 +167,9 @@ function Room() {
     }
   }
 
-  function subscribePublicVote() {
+  function subscribeDayVote() {
     if (stompClient.connected) {
-      stompClient.subscribe(`/vote/${roomId}/public`, handleVotePayload);
+      stompClient.subscribe(`/vote/${roomId}/day`, handleVotePayload);
     }
   }
 
@@ -185,9 +209,14 @@ function Room() {
       host: payloadData.host,
       players: payloadData.players,
       phase: payloadData.phase,
+      winner: payloadData.winner,
     };
     setRoomData(data);
     setCurrentUser(payloadData.players);
+
+    if (payloadData.winner !== null) {
+      setIsGameResultVisible(true);
+    }
   }
 
   function handlePublicMessage(payload) {
@@ -211,8 +240,22 @@ function Room() {
       roomId: payloadData.roomId,
       votes: payloadData.votes,
       gameEnded: payloadData.gameEnded,
+      message: payloadData.message,
+      killedPlayer: payloadData.killedPlayer,
+      revealedRolePlayer: payloadData.revealedRolePlayer,
     };
     setVoteData(data);
+
+    if (payloadData.killedPlayer !== null) {
+      sendPublicMsg({ senderName: "System", message: payloadData.message });
+    } else if (payloadData.revealedRolePlayer !== null) {
+      sendPrivateMsg({ senderName: "System", message: payloadData.message });
+    } else if (
+      payloadData.killedPlayer === null &&
+      payloadData.revealedRolePlayer === null
+    ) {
+      sendPublicMsg({ senderName: "System", message: payloadData.message });
+    }
   }
 
   function handleSendMessage(message) {
@@ -223,7 +266,7 @@ function Room() {
   }
 
   function sendPublicMsg(messageData) {
-    if (messageData.message.trim() !== "") {
+    if (messageData.message !== null && messageData.message.trim() !== "") {
       if (stompClient.connected) {
         console.log("messageData", messageData);
         stompClient.send(
@@ -292,14 +335,13 @@ function Room() {
     }
   }
 
-  function endGame(winner) {
-    startTimer();
-    setGameWinner(winner);
-    setIsGameResultVisible(true);
-  }
-
   function closeGameResult() {
     setIsGameResultVisible(false);
+    userDispatch({
+      type: "SET_USER_DATA",
+      payload: null,
+    });
+    navigate("/");
   }
 
   function exitRoom() {
@@ -340,13 +382,33 @@ function Room() {
     return image;
   }
 
-  function handlePrivateVotePlayer(player) {
-    alert("??");
-
-    if (player.role !== user.role) {
+  function handleNightVotePlayer(player) {
+    if (
+      player.id !== user.id &&
+      user.alive &&
+      player.role !== user.role &&
+      player.alive
+    ) {
       if (stompClient.connected) {
         stompClient.send(
-          "/ws/vote-private",
+          "/ws/vote-night",
+          {},
+          JSON.stringify({
+            roomId: roomId,
+            votePlayer: user,
+            selectedPlayer: player,
+            votes: voteData.votes,
+          })
+        );
+      }
+    }
+  }
+
+  function handleDayVotePlayer(player) {
+    if (player.id !== user.id && user.alive && player.alive) {
+      if (stompClient.connected) {
+        stompClient.send(
+          "/ws/vote-day",
           {},
           JSON.stringify({
             roomId: roomId,
@@ -362,7 +424,6 @@ function Room() {
   console.log("user state", user);
   console.log("room state ", roomData);
   console.log("vote state ", voteData);
-  console.log("vote ", voteData.votes[user.number]);
 
   return (
     <div
@@ -412,20 +473,22 @@ function Room() {
                         className={`relative card w-36 py-2 shadow-xl bg-black bg-opacity-60 min-[1800px]:w-44 min-[1900px]:w-48 max-[1480px]:w-36 max-[1210px]:w-30 max-[1000px]:w-28 ${
                           user.role !== "Villager" &&
                           user.role !== player.role &&
-                          player.id !== user.id
+                          player.id !== user.id &&
+                          player.alive
                             ? "cursor-pointer hover:bg-gray-300 hover:scale-105 hover:bg-opacity-70 ease-in duration-200"
                             : ""
                         } `}
-                        onClick={() => handlePrivateVotePlayer(player)}
+                        onClick={() => handleNightVotePlayer(player)}
                       >
                         <figure>
                           <img
-                            src={getImage(player.role)}
+                            src={player.alive ? getImage(player.role) : grave}
                             alt="Role"
                             className="w-32 min-[1800px]:w-44"
                           />
                         </figure>
-                        {voteData.votes[player.number] !== undefined &&
+                        {voteData.votes !== null &&
+                        voteData.votes[player.number] !== undefined &&
                         user.role !== "Villager" &&
                         user.role === player.role ? (
                           <div className="badge badge-warning absolute bottom-3 right-2 font-bold">
@@ -449,19 +512,25 @@ function Room() {
                     <div key={player.id}>
                       <div
                         className={`card w-36 py-2 shadow-xl bg-black bg-opacity-60 min-[1800px]:w-44 min-[1900px]:w-48 max-[1480px]:w-36 max-[1210px]:w-30 max-[1000px]:w-28 ${
-                          player.id !== user.id
+                          player.id !== user.id && player.alive
                             ? "cursor-pointer hover:bg-gray-300 hover:scale-105 hover:bg-opacity-70 ease-in duration-200"
                             : ""
                         } `}
+                        onClick={() => handleDayVotePlayer(player)}
                       >
                         <figure>
                           <img
-                            src={getImage(player.role)}
+                            src={player.alive ? getImage(player.role) : grave}
                             alt="Role"
                             className="w-32 min-[1800px]:w-44"
                           />
                         </figure>
-                        <div></div>
+                        {voteData.votes !== null &&
+                        voteData.votes[player.number] !== undefined ? (
+                          <div className="badge badge-warning absolute bottom-3 right-2 font-bold">
+                            Vote {voteData.votes[player.number]}
+                          </div>
+                        ) : null}
                       </div>
                       <div
                         className={`badge ${
@@ -487,19 +556,28 @@ function Room() {
             {/* Top */}
             <div className=" w-full h-1/6 flex justify-between px-7 items-center border-b-2 border-white max-[1000px]:px-3">
               {/* Room ID */}
-              <div className="flex h-1/6 items-center ">
+              <div className="flex h-1/6 items-center relative">
                 <h1 className="text-lg flex ">
                   <span className="font-semibold mr-1">Room ID: </span> {roomId}
                 </h1>
                 {roomData.status !== "STARTED" && (
-                  <MdOutlineContentCopy
-                    title="Copy room id to clipboard"
-                    className="text-xl ml-3 cursor-pointer"
-                    onClick={() => {
-                      navigator.clipboard.writeText(roomId);
-                      alert("Copied to clipboard");
-                    }}
-                  />
+                  <>
+                    <MdOutlineContentCopy
+                      title="Copy room id to clipboard"
+                      className="text-xl ml-3 cursor-pointer"
+                      onClick={() => {
+                        setCopied(true);
+                        navigator.clipboard.writeText(roomId);
+                        // alert("Copied to clipboard");
+                        setTimeout(() => setCopied(false), 1000);
+                      }}
+                    />
+                    {copied && (
+                      <p className="absolute -right-20 text-white text-xl">
+                        Copied!
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -507,13 +585,14 @@ function Room() {
                 <BsPeopleFill />
                 <p className="ml-3">{roomData.players.length}/16</p>
               </div>
+              <GameResult
+                winner={roomData.winner}
+                isVisible={isGameResultVisible}
+                close={closeGameResult}
+              />
               {/* <div className=" flex flex-auto h-full items-center justify-end">
                 <button onClick={() => endGame("Villager")}>End Game</button>
-                <GameResult
-                  winner={gameWinner}
-                  isVisible={isGameResultVisible}
-                  close={closeGameResult}
-                />
+                
               </div> */}
               {/* this timer for testing purpose*/}
               {/* <Timer remainingTime={remainingTime} /> */}
@@ -531,37 +610,61 @@ function Room() {
 
             {/* Middle */}
             <div className="text-2xl text-green-400 h-1/6 w-full flex ">
-              {roomData.status === "STARTED" ? (
+              {roomData.status !== "STARTED" ? (
                 <h1 className="m-auto">
+                  Still waiting for other players to join...
+                </h1>
+              ) : roomData.phase === "night" ? (
+                <h1 className="m-auto flex items-center">
+                  <MdOutlineTimer />
                   {user.role !== "Villager"
                     ? `${user.role} discussions in ${remainingTime / 1000}s...`
                     : "It's night time, go back to sleep Zzzz"}
                 </h1>
               ) : (
-                <h1 className="m-auto">
-                  Still waiting for other players to join...
+                <h1 className="m-auto flex ">
+                  It's day time, let's discuss!{" "}
+                  <span className="text-red-400 flex items-center ml-2">
+                    {" "}
+                    <MdOutlineTimer />{" "}
+                    <span className="ml-1">{remainingTime / 1000}s</span>
+                  </span>
                 </h1>
               )}
             </div>
             {roomData.status === "STARTED" && (
               <div className="flex flex-col w-full">
-                <div className="flex text-6xl mx-auto justify-evenly w-10/12 ">
-                  <GiWolfHowl />
-                  <FaRegEye />
-                  <BsFillPersonFill />
+                <div className="flex text-6xl mx-auto justify-evenly w-10/12 cursor-pointer">
+                  <GiWolfHowl
+                    className={`${
+                      roleDescription === 0 ? "text-red-400" : "text-white"
+                    }`}
+                    onClick={() => setRoleDescription(0)}
+                  />
+                  <FaRegEye
+                    className={`${
+                      roleDescription === 1 ? "text-red-400" : "text-white"
+                    }`}
+                    onClick={() => setRoleDescription(1)}
+                  />
+                  <BsFillPersonFill
+                    className={`${
+                      roleDescription === 2 ? "text-red-400" : "text-white"
+                    }`}
+                    onClick={() => setRoleDescription(2)}
+                  />
                 </div>
 
-                <div className="mx-auto w-10/12 h-2/3 mt-2 ">
-                  <div className="flex flex-col m-auto w-fit text-lg text-left mt-3">
+                <div className="mx-auto w-10/12 h-2/3 mt-2">
+                  <div className="flex flex-col m-auto w-[400px] text-lg text-left mt-3">
                     <p>
-                      <b>Role:</b> Seer
+                      <b>Role:</b> {description[roleDescription].role}
                     </p>
                     <p>
-                      <b>Action:</b> Each night you can select a player to
-                      reveal their role.
+                      <b>Action:</b> {description[roleDescription].action}
                     </p>
                     <p>
-                      <b>Team:</b> Village
+                      <b>Team:</b> {description[roleDescription].team}
                     </p>
                   </div>
                 </div>
@@ -664,8 +767,16 @@ function Room() {
                 <div className="h-full p-5 text-white text-left overflow-y-auto">
                   {privateChats.map((msg, index) => {
                     return (
-                      <p key={index} className="text-lg text-green-300">
-                        [{msg.senderName}]: {msg.message}
+                      <p
+                        key={index}
+                        className={`text-lg  ${
+                          msg.senderName === "System"
+                            ? "text-red-400"
+                            : "text-green-300"
+                        }`}
+                      >
+                        [{msg.senderName}]:{" "}
+                        <span className="text-white">{msg.message}</span>
                       </p>
                     );
                   })}

@@ -6,7 +6,7 @@ const initialState = {
   number: "",
   record: [0, 0],
   role: "",
-  isAlive: true,
+  alive: true,
 };
 
 const UserReducer = (initialState, action) => {
