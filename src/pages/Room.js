@@ -590,12 +590,7 @@ function Room() {
                 isVisible={isGameResultVisible}
                 close={closeGameResult}
               />
-              {/* <div className=" flex flex-auto h-full items-center justify-end">
-                <button onClick={() => endGame("Villager")}>End Game</button>
-                
-              </div> */}
-              {/* this timer for testing purpose*/}
-              {/* <Timer remainingTime={remainingTime} /> */}
+
               {/* Exit Room button */}
               {roomData.status !== "STARTED" && (
                 <div
@@ -623,7 +618,7 @@ function Room() {
                 </h1>
               ) : (
                 <h1 className="m-auto flex ">
-                  It's day time, let's discuss!{" "}
+                  You've got 60 seconds, let's discuss and vote!{" "}
                   <span className="text-red-400 flex items-center ml-2">
                     {" "}
                     <MdOutlineTimer />{" "}
