@@ -80,6 +80,8 @@ function Room() {
   });
   const [remainingTime, setRemainingTime] = useState(0);
 
+  const [publicChatsSub, setPublicChatsSub] = useState(false);
+
   /********************************************
    CALLBACK
    *********************************************/
@@ -143,8 +145,9 @@ function Room() {
   }
 
   function subscribePublicChat() {
-    if (stompClient.connected) {
+    if (stompClient.connected && !publicChatsSub) {
       stompClient.subscribe(`/chat/${roomId}/public`, handlePublicMessage);
+      setPublicChatsSub(true);
     }
 
     if (user != null) {
@@ -265,16 +268,16 @@ function Room() {
     });
   }
 
-  function sendPublicMsg(messageData) {
-    if (messageData.message !== null && messageData.message.trim() !== "") {
+  function sendPublicMsg(msgData) {
+    if (msgData.message !== null && msgData.message.trim() !== "") {
       if (stompClient.connected) {
-        console.log("messageData", messageData);
+        console.log("msgData", msgData);
         stompClient.send(
           "/ws/send-public-message",
           {},
           JSON.stringify({
             room: { id: roomId },
-            message: messageData,
+            message: msgData,
           })
         );
         setMessageData({ ...messageData, message: "" });
