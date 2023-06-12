@@ -1,8 +1,10 @@
+import React from "react";
 import werewolfImage from "../img/win-werewolf.jpg";
 import gameOverImage from "../img/game-over.png";
 import villagerImage from "../img/win-villager.jpg";
+import congratulationsImage from "../img/congratulations.png";
 
-function GameResult({ winner, isVisible, close }) {
+function GameResult({ winner, userRole, isVisible, close }) {
   if (!isVisible) {
     return null;
   }
@@ -29,13 +31,16 @@ function GameResult({ winner, isVisible, close }) {
     backgroundPosition: "center",
   };
 
+  const isUserWinner = (userRole === 'Seer' || userRole === 'Villager') && winner === 'Villager' || userRole === 'Wolf' && winner === 'Wolf';
+  const titleDisplayImage = isUserWinner ? congratulationsImage : gameOverImage;
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
       <div
         style={styleToShow}
         className="relative w-3/4 h-3/4 rounded p-4 shadow-lg flex flex-col space-y-6 justify-center items-center"
       >
-        <img src={gameOverImage} className="absolute top-0 pt-5" />
+        <img src={titleDisplayImage} className="absolute top-0 pt-5" />
         <h1 className="font-mono text-5xl text-white">The winner is:</h1>
         <h2 className="font-mono text-6xl font-semibold text-white underline decoration-4 ">
           {winner}

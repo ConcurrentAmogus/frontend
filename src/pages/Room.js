@@ -590,6 +590,7 @@ function Room() {
               </div>
               <GameResult
                 winner={roomData.winner}
+                userRole={user.role}
                 isVisible={isGameResultVisible}
                 close={closeGameResult}
               />
