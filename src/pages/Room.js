@@ -126,7 +126,7 @@ function Room() {
   }
 
   function handleError(err) {
-    alert("Error in connecting WebSocket ", err);
+    console.log("Error in connecting WebSocket ", err);
   }
 
   function subscribeRoom() {
@@ -225,15 +225,25 @@ function Room() {
   function handlePublicMessage(payload) {
     var payloadData = JSON.parse(payload.body);
 
-    publicChats.push(payloadData);
-    setPublicChats([...publicChats]);
+    const last = publicChats.length
+      ? publicChats[publicChats.length - 1]
+      : { message: "" };
+    if (payloadData.message !== last.message) {
+      publicChats.push(payloadData);
+      setPublicChats([...publicChats]);
+    }
   }
 
   function handlePrivateMessage(payload) {
     var payloadData = JSON.parse(payload.body);
 
-    privateChats.push(payloadData);
-    setPrivateChats([...privateChats]);
+    const last = privateChats.length
+      ? privateChats[privateChats.length - 1]
+      : { message: "" };
+    if (payloadData.message !== last.message) {
+      privateChats.push(payloadData);
+      setPrivateChats([...privateChats]);
+    }
   }
 
   function handleVotePayload(payload) {
