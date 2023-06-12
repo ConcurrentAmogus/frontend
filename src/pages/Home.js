@@ -194,7 +194,7 @@ function Home() {
   }
 
   return (
-    <div className="bg-[url('/src/img/bg-home.jpg')] h-screen bg-no-repeat bg-center bg-cover">
+    <div className="bg-[url('/src/img/bg-home.jpg')] h-screen bg-no-repeat bg-center bg-cover overflow-auto">
       <div className="flex flex-col w-fit h-fit text-center m-auto">
         <img
           src={logo}
