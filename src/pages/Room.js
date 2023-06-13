@@ -114,7 +114,6 @@ function Room() {
   }
 
   function privateSubscription() {
-    while (!stompClient.connected) {}
     subscribeNightVote(user.role);
     subscribePrivateChat(user.role);
   }
@@ -135,7 +134,15 @@ function Room() {
     console.log("Error in connecting WebSocket ", err);
     console.log("Trying to reconnect...");
     connectWebSocket();
-    privateSubscription();
+    checkConnection();
+  }
+
+  function checkConnection() {
+    if (!stompClient.connected) {
+      setTimeout(checkConnection, 100);
+    } else {
+      privateSubscription();
+    }
   }
 
   function subscribeRoom() {
