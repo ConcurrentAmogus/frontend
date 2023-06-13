@@ -127,6 +127,8 @@ function Room() {
 
   function handleError(err) {
     console.log("Error in connecting WebSocket ", err);
+    console.log("Trying to reconnect...");
+    connectWebSocket();
   }
 
   function subscribeRoom() {

@@ -45,6 +45,8 @@ function Home() {
 
   function handleError(err) {
     console.log("Error in connecting WebSocket ", err);
+    console.log("Trying to reconnect...");
+    connectWebSocket();
   }
 
   // API call
@@ -119,9 +121,6 @@ function Home() {
         };
 
         stompClient.send("/ws/update-room", {}, JSON.stringify(room));
-        // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
-        // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
-        // stompClient.send("/ws/update-room", {}, JSON.stringify(room));
         navigate(`/room/${roomId}`);
       } else {
         const reason = roomAvailability.reason;
