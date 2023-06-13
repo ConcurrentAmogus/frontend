@@ -153,11 +153,17 @@ function Room() {
     }
 
     if (user != null) {
-      const msgData = {
-        senderName: "System",
-        message: user.username + " join the room",
-      };
-      sendPublicMsg(msgData);
+      const filter = roomData.players.filter((player) => player.id === user.id);
+
+      if (filter.length <= 0) {
+        const msgData = {
+          senderName: "System",
+          message: user.username + " join the room",
+        };
+        sendPublicMsg(msgData);
+      } else {
+        console.log(filter[0], " ady in the room, no need to rejoin");
+      }
     }
   }
 
