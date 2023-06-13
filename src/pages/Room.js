@@ -114,6 +114,7 @@ function Room() {
   }
 
   function privateSubscription() {
+    while (!stompClient.connected) {}
     subscribeNightVote(user.role);
     subscribePrivateChat(user.role);
   }
