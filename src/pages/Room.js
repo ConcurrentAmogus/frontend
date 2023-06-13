@@ -154,6 +154,7 @@ function Room() {
 
     if (user != null) {
       const filter = roomData.players.filter((player) => player.id === user.id);
+      console.log("filter", filter);
 
       if (filter.length <= 0) {
         const msgData = {
