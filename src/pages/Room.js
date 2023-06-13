@@ -95,8 +95,7 @@ function Room() {
   }, []);
 
   useEffect(() => {
-    subscribeNightVote(user.role);
-    subscribePrivateChat(user.role);
+    privateSubscription();
   }, [user.role]);
 
   const handleBeforeUnload = (e) => {
@@ -112,6 +111,11 @@ function Room() {
     const socket = new SockJS(WS_ENDPOINT);
     stompClient = Stomp.over(socket);
     stompClient.connect({}, handleConnect, handleError);
+  }
+
+  function privateSubscription() {
+    subscribeNightVote(user.role);
+    subscribePrivateChat(user.role);
   }
 
   function handleConnect() {
@@ -130,6 +134,7 @@ function Room() {
     console.log("Error in connecting WebSocket ", err);
     console.log("Trying to reconnect...");
     connectWebSocket();
+    privateSubscription();
   }
 
   function subscribeRoom() {
