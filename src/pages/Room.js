@@ -56,6 +56,7 @@ function Room() {
   const [gameWinner, setGameWinner] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [roleDescription, setRoleDescription] = useState(0);
+  const [joined, setJoined] = useState(false);
   const [roomData, setRoomData] = useState({
     id: "",
     status: "",
@@ -153,17 +154,15 @@ function Room() {
     }
 
     if (user != null) {
-      const filter = roomData.players.filter((player) => player.id === user.id);
-      console.log("filter", filter);
-
-      if (filter.length <= 0) {
+      if (!joined) {
         const msgData = {
           senderName: "System",
           message: user.username + " join the room",
         };
         sendPublicMsg(msgData);
+        setJoined(true);
       } else {
-        console.log(filter[0], " ady in the room, no need to rejoin");
+        console.log(user.username, " ady in the room, no need to rejoin");
       }
     }
   }
