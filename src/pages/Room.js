@@ -467,19 +467,19 @@ function Room() {
           : roomData.phase === "day"
           ? "bg-[url('/src/img/bg-room-day.png')]"
           : "bg-[url('/src/img/bg-room-evening.png')]"
-      } h-screen bg-no-repeat bg-center bg-cover overflow-y-auto flex flex-row`}
+      } h-screen bg-no-repeat bg-center bg-cover overflow-y-auto flex flex-row max-[900px]:flex-col`}
     >
       {roomData.status === "STARTING" && remainingTime > 0 ? (
         <Screen msg={`Starting game in ${remainingTime / 1000}s...`} />
       ) : null}
-      <div className=" flex-auto w-64">
+      <div className=" flex-auto w-64 max-[900px]:w-full">
         {/* Players */}
-        <div className="grid grid-cols-4 gap-y-2 py-3 px-5 pl-14 max-[1210px]:grid-cols-3 max-[700px]:grid-cols-2">
+        <div className="grid grid-cols-4 gap-y-2 py-3 px-5 pl-14 max-[1210px]:grid-cols-3 max-[900px]:grid-cols-5 max-[700px]:grid-cols-3 max-[450px]:grid-cols-2">
           {roomData.players.map((player) => {
             if (player != null) {
               if (roomData.status !== "STARTED") {
                 return (
-                  <div key={player.id}>
+                  <div key={player.id} className="max-[900px]:w-fit">
                     <div className="card w-36 py-2 shadow-xl bg-black bg-opacity-60 min-[1800px]:w-44 min-[1900px]:w-48 max-[1480px]:w-36 max-[1210px]:w-30 max-[1000px]:w-28">
                       <figure>
                         <img
@@ -493,7 +493,7 @@ function Room() {
                     <div
                       className={`badge ${
                         user.id === player.id ? "badge-error" : "badge-success"
-                      } w-fit text-lg font-bold mr-8 mt-2 min-[2000px]:mr-16`}
+                      } w-fit text-lg font-bold mr-8 mt-2 min-[2000px]:mr-16 max-[900px]:mx-auto`}
                     >
                       {player.number} {player.username}
                     </div>
@@ -583,12 +583,12 @@ function Room() {
           })}
         </div>
       </div>
-      <div className="flex-auto w-32 flex flex-col h-full">
+      <div className="flex-auto w-32 flex flex-col h-full max-[900px]:w-full max-[900px]:pl-10">
         {/* Room Details */}
-        <div className="flex-auto h-48 pr-8 pt-5 pb-2 flex flex-col">
+        <div className="flex-auto h-48 pr-8 pt-5 pb-2 flex flex-col max-[500px]:h-80">
           <div className="bg-black bg-opacity-70 border-gray-500 border-solid border-2 w-full h-full rounded-2xl shadow-2xl text-white flex flex-col justify-between pb-3">
             {/* Top */}
-            <div className=" w-full h-1/6 flex justify-between px-7 items-center border-b-2 border-white max-[1000px]:px-3">
+            <div className=" w-full h-1/6 flex justify-between px-7 items-center border-b-2 border-white max-[1000px]:px-3 max-[500px]:h-fit max-[500px]:flex-col max-[500px]:my-3 ">
               {/* Room ID */}
               <div className="flex h-1/6 items-center relative">
                 <h1 className="text-lg flex ">
@@ -639,9 +639,9 @@ function Room() {
             </div>
 
             {/* Middle */}
-            <div className="text-2xl text-green-400 h-1/6 w-full flex ">
+            <div className="text-2xl text-green-400 h-1/6 w-full flex max-[500px]:h-1/2">
               {roomData.status !== "STARTED" ? (
-                <h1 className="m-auto">
+                <h1 className="m-auto max-[500px]:text-[20px] max-[500px]:text-[20px]:px-5">
                   Still waiting for other players to join...
                 </h1>
               ) : roomData.phase === "night" ? (
@@ -705,7 +705,7 @@ function Room() {
             <div
               className={`w-full ${
                 roomData.status === "STARTED" ? "h-0" : "h-1/6"
-              } px-5  flex justify-end items-center`}
+              } px-5  flex justify-end items-center max-[500px]:h-1/2`}
             >
               {roomData.host != null &&
                 user.id === roomData.host.id &&
@@ -722,7 +722,7 @@ function Room() {
         </div>
 
         {/* Chat */}
-        <div className="flex-auto h-52 pb-10 pt-2 pr-8">
+        <div className="flex-auto h-52 pb-10 pt-2 pr-8 max-[500px]:h-72">
           <div className="bg-black bg-opacity-70 border-gray-500 border-solid border-2 w-full h-full rounded-2xl shadow-2xl flex flex-col">
             {/* Tab */}
             <div
@@ -778,7 +778,7 @@ function Room() {
                     <input
                       type="text"
                       placeholder="Public Chat..."
-                      className="input input-bordered w-full bg-gray-800 text-white"
+                      className="input input-bordered w-full  "
                       value={messageData.message}
                       onChange={(e) => handleSendMessage(e.target.value)}
                     />
@@ -817,7 +817,7 @@ function Room() {
                     <input
                       type="text"
                       placeholder="Private Chat..."
-                      className="input input-bordered w-full bg-gray-800 text-white"
+                      className="input input-bordered w-full"
                       value={messageData.message}
                       onChange={(e) => handleSendMessage(e.target.value)}
                     />
